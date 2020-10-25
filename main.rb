@@ -2,7 +2,7 @@ require 'net/http'
 require 'nokogiri'
 require 'json'
 require 'firebase'
-require_relative 'config.local.rb'
+require_relative 'config.local'
 
 class ContinualRange
   def initialize(from, to, step)
@@ -12,32 +12,30 @@ class ContinualRange
     @max = to
   end
 
-  def current()
-    return [@from, @from + @step]
+  def current
+    [@from, @from + @step]
   end
 
-  def next()
-    from, to = self.current()
+  def next
+    from, to = current
     @from = to + 1
-    @to = @to + @step
+    @to += @step
   end
 
-  def last?()
-    from, to = self.current()
+  def last?
+    from, to = current
     from >= @max
   end
 
-  def steps()
-    (@from .. @to).to_a
+  def steps
+    (@from..@to).to_a
   end
 
-  private
-    @from
-    @to
-    @max
-    @step
+  @from
+  @to
+  @max
+  @step
 end
-
 
 class SlovnikCizichSlovPage
   def initialize(from, to)
@@ -45,46 +43,42 @@ class SlovnikCizichSlovPage
     @to = to
   end
 
-  def html()
-    Net::HTTP.get(URI(self.url()))
+  def html
+    Net::HTTP.get(URI(url))
   end
 
-  def url()
-    url = '%s/web.php/top100' % [self.base_url()]
-    unless @from == 0
-      url += '/%d-%d' % [@from, @to]
-    end
+  def url
+    url = format('%s/web.php/top100', base_url)
+    url += format('/%d-%d', @from, @to) unless @from == 0
     url
   end
 
-  def base_url()
+  def base_url
     'https://slovnik-cizich-slov.abz.cz'
   end
 
-  private
-    @from
-    @to
+  @from
+  @to
 end
-
 
 class SlovnikCizichSlovWords
   def initialize(pages)
     @pages = pages
   end
 
-  def all()
+  def all
     position = 0
     words = []
-    @pages.all().each do |page|
-        html = Nokogiri::HTML(page.html())
-        values = html.xpath('//div[@id="content_part"]//div[@style]/a/text()')
-        links = html.xpath('//div[@id="content_part"]//div[@style]/a/@href')
-        links = self.absolute_links(page.base_url(), links)
-        values.zip(links).each do |word|
-          value, link = word
-          position += 1
-          words.push({:position => position, :value => value, :link => link})
-        end   
+    @pages.all.each do |page|
+      html = Nokogiri::HTML(page.html())
+      values = html.xpath('//div[@id="content_part"]//div[@style]/a/text()')
+      links = html.xpath('//div[@id="content_part"]//div[@style]/a/@href')
+      links = absolute_links(page.base_url, links)
+      values.zip(links).each do |word|
+        value, link = word
+        position += 1
+        words.push({ position: position, value: value, link: link })
+      end
     end
     words
   end
@@ -94,46 +88,41 @@ class SlovnikCizichSlovWords
   end
 
   def absolute_links(url, links)
-    links.map{|path| self.absolute_link(url, path)}
+    links.map { |path| absolute_link(url, path) }
   end
 
-  private
-    @pages
+  @pages
 end
 
-
 class SlovnikCizichSlovPages
-  def all()
+  def all
     pages = []
     range = ContinualRange.new(0, 1000, 50)
-    while not range.last?
-        from, to = range.current()
-        pages.append(SlovnikCizichSlovPage.new(from, to))
-        range.next()
+    until range.last?
+      from, to = range.current
+      pages.append(SlovnikCizichSlovPage.new(from, to))
+      range.next
     end
     pages
   end
 end
-
 
 class UniqueWords
   def initialize(origin)
     @origin = origin
   end
 
-  def all()
+  def all
     words = []
-    @origin.all().select{|word|
+    @origin.all.select do |word|
       unique = words.none? word[:value]
       words.push(word[:value])
       unique
-    }
+    end
   end
 
-  private
-    @origin
+  @origin
 end
-
 
 class Telegram
   def initialize(token)
@@ -142,17 +131,16 @@ class Telegram
 
   def request(endpoint, parameters)
     Net::HTTP.post(
-      URI(self.url(endpoint)),
-      parameters.to_json(),
-      'Content-Type': 'application/json',
+      URI(url(endpoint)),
+      parameters.to_json,
+      'Content-Type': 'application/json'
     )
   end
 
   def url(endpoint)
-    'https://api.telegram.org/bot%s/%s' % [@token, endpoint]
+    format('https://api.telegram.org/bot%s/%s', @token, endpoint)
   end
 end
-
 
 class TelegramMessage
   def initialize(client, text, chatId)
@@ -161,85 +149,73 @@ class TelegramMessage
     @chatId = chatId
   end
 
-  def send()
+  def send
     @client.request(
       'sendMessage',
       {
         chat_id: @chatId,
         text: @text,
         parse_mode: 'html',
-        disable_web_page_preview: true,
+        disable_web_page_preview: true
       }
     )
   end
 
-  private
-    @client
-    @text
-    @chatId
+  @client
+  @text
+  @chatId
 end
 
-
 class FirebaseWord
-  DOCUMENT = 'words'
+  DOCUMENT = 'words'.freeze
   def initialize(client)
     @client = client
   end
 
-  def value()
-    response = @client.get(DOCUMENT, {orderBy: '"position"', limitToFirst: 1})
-    unless response.success?
-      raise 'Response was not successfull - %s' % [response.raw_body]
-    end
-    if response.body.nil?
-      raise 'No more words.'
-    end
-    id, word = response.body.first()
+  def value
+    response = @client.get(DOCUMENT, { orderBy: '"position"', limitToFirst: 1 })
+    raise format('Response was not successfull - %s', response.raw_body) unless response.success?
+    raise 'No more words.' if response.body.nil?
+
+    id, word = response.body.first
     @id = id
     word
   end
 
-  def delete()
-    if @id.nil?
-      raise 'No word to delete.'
-    end
+  def delete
+    raise 'No word to delete.' if @id.nil?
+
     response = @client.delete(DOCUMENT + '/' + @id)
-    unless response.success?
-      raise 'Response was not successfull - %s' % [response.raw_body]
-    end
+    raise format('Response was not successfull - %s', response.raw_body) unless response.success?
   end
 
-  private
-    @client
-    @id
+  @client
+  @id
 end
 
-
 class FirebaseWords
-  DOCUMENT = 'words'
+  DOCUMENT = 'words'.freeze
   def initialize(origin, firebase)
     @origin = origin
     @firebase = firebase
   end
 
-  def add()
-    @origin.all().each{|word|
+  def add
+    @origin.all.each do |word|
       @firebase.push(
         DOCUMENT,
         {
           position: word[:position],
           value: word[:value],
-          link: word[:link],
+          link: word[:link]
         }
       )
-    }
+    end
   end
 
-  private
-    @origin
-    @firebase
+  @origin
+  @firebase
 end
-
 
 class Feed
   def initialize(firebase, telegram, subscribers)
@@ -248,37 +224,35 @@ class Feed
     @subscribers = subscribers
   end
 
-  def consume()
+  def consume
     word = FirebaseWord.new(@firebase)
     value = word.value()
-    message = '<a href="%s">%s</a>' % [value['link'], value['value']]
-    @subscribers.each{|subscriber| TelegramMessage.new(@telegram, message, subscriber).send()}
-    word.delete()
+    message = format('<a href="%s">%s</a>', value['link'], value['value'])
+    @subscribers.each { |subscriber| TelegramMessage.new(@telegram, message, subscriber).send }
+    word.delete
   end
 
-  private
-    @firebase
-    @telegram
-    @subscribers
+  @firebase
+  @telegram
+  @subscribers
 end
-
 
 firebase = Firebase::Client.new(
   CONFIG[:firebase][:uri],
-  File.open(CONFIG[:firebase][:key_uri]).read(),
+  File.open(CONFIG[:firebase][:key_uri]).read
 )
 
 def import(firebase)
   FirebaseWords.new(
-    UniqueWords.new(SlovnikCizichSlovWords.new(SlovnikCizichSlovPages.new())),
-    firebase,
-  ).add()
+    UniqueWords.new(SlovnikCizichSlovWords.new(SlovnikCizichSlovPages.new)),
+    firebase
+  ).add
 end
 
 def consume(firebase)
   telegram = Telegram.new(CONFIG[:telegram][:token])
-  
-  Feed.new(firebase, telegram, CONFIG[:telegram][:subscribers]).consume()
+
+  Feed.new(firebase, telegram, CONFIG[:telegram][:subscribers]).consume
 end
 
 case ARGV[0]
@@ -289,4 +263,3 @@ when 'consume'
 else
   raise 'You must pass one of [import, consume] option.'
 end
-
