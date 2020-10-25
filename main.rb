@@ -78,10 +78,8 @@ class SlovnikCizichSlovWords
     @pages.all().each do |page|
         html = Nokogiri::HTML(page.html())
         values = html.xpath('//div[@id="content_part"]//div[@style]/a/text()')
-        links = self.absolute_links(
-          page.base_url(),
-          html.xpath('//div[@id="content_part"]//div[@style]/a/@href'),
-        )
+        links = html.xpath('//div[@id="content_part"]//div[@style]/a/@href')
+        links = self.absolute_links(page.base_url(), links)
         values.zip(links).each do |word|
           value, link = word
           position += 1
