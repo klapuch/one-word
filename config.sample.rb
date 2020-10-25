@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 CONFIG = {
   firebase: {
     uri: 'https://one-word-bc956.firebaseio.com/',

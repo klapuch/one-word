@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'net/http'
 require 'nokogiri'
 require 'json'
@@ -49,7 +51,7 @@ class SlovnikCizichSlovPage
 
   def url
     url = format('%s/web.php/top100', base_url)
-    url += format('/%d-%d', @from, @to) unless @from == 0
+    url += format('/%d-%d', @from, @to) unless @from.zero?
     url
   end
 
@@ -84,7 +86,7 @@ class SlovnikCizichSlovWords
   end
 
   def absolute_link(url, path)
-    url + '/' + path.to_s.delete_prefix('/')
+    "#{url}/#{path.to_s.delete_prefix('/')}"
   end
 
   def absolute_links(url, links)
@@ -167,7 +169,7 @@ class TelegramMessage
 end
 
 class FirebaseWord
-  DOCUMENT = 'words'.freeze
+  DOCUMENT = 'words'
   def initialize(client)
     @client = client
   end
@@ -185,7 +187,7 @@ class FirebaseWord
   def delete
     raise 'No word to delete.' if @id.nil?
 
-    response = @client.delete(DOCUMENT + '/' + @id)
+    response = @client.delete("#{DOCUMENT}/#{@id}")
     raise format('Response was not successfull - %s', response.raw_body) unless response.success?
   end
 
@@ -194,7 +196,7 @@ class FirebaseWord
 end
 
 class FirebaseWords
-  DOCUMENT = 'words'.freeze
+  DOCUMENT = 'words'
   def initialize(origin, firebase)
     @origin = origin
     @firebase = firebase
