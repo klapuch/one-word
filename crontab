@@ -1,0 +1,4 @@
+0 12 * * * cd /home/dom/Projects/one-word && /usr/bin/ruby main.rb consume
+0 15 * * * cd /home/dom/Projects/one-word && /usr/bin/ruby main.rb consume
+0 19 * * * cd /home/dom/Projects/one-word && /usr/bin/ruby main.rb consume
+
