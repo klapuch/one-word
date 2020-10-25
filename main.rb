@@ -19,24 +19,19 @@ class ContinualRange
   end
 
   def next
-    from, to = current
+    _, to = current
     @from = to + 1
     @to += @step
   end
 
   def last?
-    from, to = current
+    from, = current
     from >= @max
   end
 
   def steps
     (@from..@to).to_a
   end
-
-  @from
-  @to
-  @max
-  @step
 end
 
 class SlovnikCizichSlovPage
@@ -58,9 +53,6 @@ class SlovnikCizichSlovPage
   def base_url
     'https://slovnik-cizich-slov.abz.cz'
   end
-
-  @from
-  @to
 end
 
 class SlovnikCizichSlovWords
@@ -92,8 +84,6 @@ class SlovnikCizichSlovWords
   def absolute_links(url, links)
     links.map { |path| absolute_link(url, path) }
   end
-
-  @pages
 end
 
 class SlovnikCizichSlovPages
@@ -122,8 +112,6 @@ class UniqueWords
       unique
     end
   end
-
-  @origin
 end
 
 class Telegram
@@ -162,10 +150,6 @@ class TelegramMessage
       }
     )
   end
-
-  @client
-  @text
-  @chatId
 end
 
 class FirebaseWord
@@ -190,9 +174,6 @@ class FirebaseWord
     response = @client.delete("#{DOCUMENT}/#{@id}")
     raise format('Response was not successfull - %s', response.raw_body) unless response.success?
   end
-
-  @client
-  @id
 end
 
 class FirebaseWords
@@ -214,9 +195,6 @@ class FirebaseWords
       )
     end
   end
-
-  @origin
-  @firebase
 end
 
 class Feed
@@ -233,10 +211,6 @@ class Feed
     @subscribers.each { |subscriber| TelegramMessage.new(@telegram, message, subscriber).send }
     word.delete
   end
-
-  @firebase
-  @telegram
-  @subscribers
 end
 
 firebase = Firebase::Client.new(
